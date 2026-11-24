@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Radiance — AI Personal Styling Companion</title>
+  <meta name="description" content="Radiance AI Personal Styling Companion: Discover colors, outfits, shop matching pieces on Myntra and Meesho, and visualize your look on mobile and desktop.">
+  
+  <!-- Typography: Luxury Editorial Serif & Modern Sans-Serif -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Hidden canvas for real-time deterministic chroma extraction -->
+  <canvas id="analysis-canvas" style="display:none;" width="120" height="120"></canvas>
+
+  <!-- View Mode Switcher Bar (Mobile 9:16 vs Desktop 16:9) -->
+  <div class="view-mode-bar" id="view-mode-bar">
+    <div class="mode-toggle-group">
+      <button class="mode-toggle-btn active" id="btn-mode-mobile" onclick="RadianceApp.setViewMode('mobile')" aria-label="Mobile 9:16 View">
+        <span>📱 Mobile</span>
+      </button>
+      <button class="mode-toggle-btn" id="btn-mode-desktop" onclick="RadianceApp.setViewMode('desktop')" aria-label="Desktop 16:9 View">
+        <span>💻 Desktop</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Outer shell (adds .desktop-mode class when toggled) -->
+  <div class="mobile-device-shell" id="device-shell">
+
+    <!-- Screen Viewport (Mobile 9:16 or Desktop 16:9) -->
+    <div class="mobile-screen-viewport" id="mobile-viewport">
+
+      <!-- Status Bar (iOS / Android Style on mobile, studio bar on desktop) -->
+      <div class="mobile-status-bar" id="mobile-status-bar">
+        <span class="status-time" id="status-time">9:41</span>
+        <div class="status-dynamic-island">
+          <div class="island-camera"></div>
+          <div class="island-sensor"></div>
+        </div>
+        <div class="status-icons">
+          <!-- Signal -->
+          <svg width="15" height="11" viewBox="0 0 17 11" fill="currentColor">
+            <rect x="0" y="8" width="2.5" height="3" rx="0.6"/>
+            <rect x="4" y="5.5" width="2.5" height="5.5" rx="0.6"/>
+            <rect x="8" y="3" width="2.5" height="8" rx="0.6"/>
+            <rect x="12" y="0.5" width="2.5" height="10.5" rx="0.6"/>
+          </svg>
+          <!-- Wifi -->
+          <svg width="15" height="11" viewBox="0 0 16 12" fill="currentColor">
+            <path d="M8 9.6a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2zm0-4.6c2.2 0 4.2.8 5.7 2.2l-1.3 1.3C11.3 7.4 9.7 6.8 8 6.8s-3.3.6-4.4 1.7L2.3 7.2C3.8 5.8 5.8 5 8 5zm0-4.4c3.4 0 6.5 1.3 8.8 3.5l-1.3 1.3C13.5 3.5 10.9 2.4 8 2.4S2.5 3.5.5 5.4L-.8 4.1C1.5 1.9 4.6.6 8.6.6z"/>
+          </svg>
+          <!-- Battery -->
+          <div class="status-battery">
+            <div class="battery-level"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Persistent App Header -->
+      <header class="mobile-app-header" id="mobile-header">
+        <button class="header-back-btn" id="header-back-btn" onclick="RadianceApp.goBack()" style="visibility:hidden;" aria-label="Go Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+
+        <div class="header-brand-lockup" onclick="RadianceApp.goToScreen(0)" title="Return to Radiance Home">
+          <div class="header-sparkle-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L13.8 8.5L20.5 12L13.8 15.5L12 22L10.2 15.5L3.5 12L10.2 8.5L12 2Z" fill="url(#hdr-sparkle)" />
+              <circle cx="12" cy="12" r="2.2" fill="#FAF7F2" />
+              <defs>
+                <linearGradient id="hdr-sparkle" x1="3.5" y1="2" x2="20.5" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C27D60" />
+                  <stop offset="0.5" stop-color="#DFB15B" />
+                  <stop offset="1" stop-color="#8C4728" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span class="header-brand-text">RADIANCE</span>
+        </div>
+
+        <div class="header-actions-right">
+          <div class="header-premium-chip" id="header-premium-chip" style="display:none;" title="₹449 • One-time access">
+            <span class="prem-star">✦</span>
+            <span class="prem-text">PREMIUM ✓</span>
+          </div>
+          <button class="header-profile-btn" id="header-profile-btn" onclick="RadianceApp.openProfileModal()" title="My Profile" aria-label="My Profile">
+            <span id="header-profile-initial">P</span>
+          </button>
+          <button class="header-home-btn" id="header-home-btn" onclick="RadianceApp.goToScreen(0)" title="Radiance Home">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </button>
+          <button class="header-saved-chip" onclick="RadianceApp.openSavedModal()" title="View Saved Looks">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            <span class="header-saved-count" id="header-saved-count">0</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- App Step Journey Progress Bar -->
+      <div class="mobile-step-indicator" id="mobile-step-indicator" style="display:none;">
+        <div class="step-progress-track">
+          <div class="step-progress-fill" id="step-progress-fill" style="width: 0%;"></div>
+        </div>
+        <div class="step-name-row">
+          <span class="current-step-label" id="current-step-label">Radiance Home</span>
+        </div>
+      </div>
+
+      <!-- Scrollable Mobile App Body -->
+      <div class="mobile-app-body" id="mobile-app-body">
+
+        <!-- ========================================================
+             SCREEN 0 — RADIANCE HOME (Home First Entry)
+             ======================================================== -->
+        <section class="mobile-screen active" id="screen-0" data-step="0">
+          <div class="screen-pad home-screen-pad">
+            
+            <div class="home-hero-section animate-fade-in">
+              <div class="radiance-monogram-emblem large">
+                <svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="30" stroke="url(#m-ring-home)" stroke-width="1.6" stroke-dasharray="2 3" opacity="0.6"/>
+                  <path d="M32 6L36.8 24.2L55 29L36.8 33.8L32 52L27.2 33.8L9 29L27.2 24.2L32 6Z" fill="url(#m-star-home)"/>
+                  <circle cx="32" cy="29" r="3.5" fill="#FAF7F2"/>
+                  <defs>
+                    <linearGradient id="m-ring-home" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#C27D60" />
+                      <stop offset="1" stop-color="#DFB15B" />
+                    </linearGradient>
+                    <linearGradient id="m-star-home" x1="9" y1="6" x2="55" y2="52" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#C27D60" />
+                      <stop offset="0.5" stop-color="#E8B89E" />
+                      <stop offset="1" stop-color="#8C4728" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              <span class="home-brand-kicker">HAUTE AI PERSONAL STYLING</span>
+              <h1 class="home-main-headline">Discover the style that feels like you.</h1>
+              <p class="home-main-description">
+                Your personal AI styling companion. From live camera analysis and verified color harmonies to occasion looks, Myntra & Meesho shopping, and virtual try-on.
+              </p>
+
+              <!-- Primary CTA: Start Styling -->
+              <button class="mobile-primary-btn home-cta-btn pulse-glow" onclick="RadianceApp.goToScreen(1)">
+                <span>Start Styling</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Feature Discovery Grid -->
+            <div class="home-features-container animate-fade-up">
+              <div class="home-section-header">
+                <span class="home-section-eyebrow">EXPLORE CAPABILITIES</span>
+                <h3 class="home-section-title">Styling Suite</h3>
+              </div>
+
+              <div class="home-features-grid">
+                <!-- Feature 1: Personal Color Analysis -->
+                <div class="home-feature-card" onclick="RadianceApp.quickJump(3)">
+                  <div class="feature-card-icon" style="background: rgba(194, 125, 96, 0.12); color: #C27D60;">🎨</div>
+                  <div class="feature-card-content">
+                    <div class="feature-card-tag">CHROMA ENGINE</div>
+                    <h4 class="feature-card-title">Personal Color Analysis</h4>
+                    <p class="feature-card-desc">Power tones, complementary accents & shades to avoid.</p>
+                  </div>
+                  <div class="feature-card-arrow">→</div>
+                </div>
+
+                <!-- Feature 2: Outfit Recommendations -->
+                <div class="home-feature-card" onclick="RadianceApp.quickJump(4)">
+                  <div class="feature-card-icon" style="background: rgba(223, 177, 91, 0.15); color: #8C4728;">👗</div>
+                  <div class="feature-card-content">
+                    <div class="feature-card-tag">CURATED ENSEMBLES</div>
+                    <h4 class="feature-card-title">Outfit Recommendations</h4>
+                    <p class="feature-card-desc">4+ complete looks for Casual, College, Formal, Ethnic & Party.</p>
+                  </div>
+                  <div class="feature-card-arrow">→</div>
+                </div>
+
+                <!-- Feature 3: Complete Look -->
+                <div class="home-feature-card" onclick="RadianceApp.quickJump(5)">
+                  <div class="feature-card-icon" style="background: rgba(194, 125, 96, 0.12); color: #C27D60;">✨</div>
+                  <div class="feature-card-content">
+                    <div class="feature-card-tag">STYLING DOSSIER</div>
+                    <h4 class="feature-card-title">Complete Look</h4>
+                    <p class="feature-card-desc">Top, bottom, footwear & jewelry harmony with color rationale.</p>
+                  </div>
+                  <div class="feature-card-arrow">→</div>
+                </div>
+
+                <!-- Feature 4: Shop Your Look -->
+                <div class="home-feature-card" onclick="RadianceApp.quickJump(6)">
+                  <div class="feature-card-icon" style="background: rgba(255, 63, 108, 0.12); color: #FF3F6C;">🛍️</div>
+                  <div class="feature-card-content">
+                    <div class="feature-card-tag">MYNTRA & MEESHO</div>
+                    <h4 class="feature-card-title">Shop Your Look</h4>
+                    <p class="feature-card-desc">Curated pieces matched from Myntra & Meesho with bundle total.</p>
+                  </div>
+                  <div class="feature-card-arrow">→</div>
+                </div>
+
+                <!-- Feature 5: Virtual Try-On -->
+                <div class="home-feature-card" onclick="RadianceApp.quickJump(7)">
+                  <div class="feature-card-icon" style="background: rgba(223, 177, 91, 0.15); color: #DFB15B;">🪞</div>
+                  <div class="feature-card-content">
+                    <div class="feature-card-tag">AI DRAPE MIRROR</div>
+                    <h4 class="feature-card-title">Virtual Try-On</h4>
+                    <p class="feature-card-desc">Simulate tailored pieces on your portrait with interactive pins.</p>
+                  </div>
+                  <div class="feature-card-arrow">→</div>
+                </div>
+
+                <!-- Feature 6: Saved Looks -->
+                <div class="home-feature-card" onclick="RadianceApp.openSavedModal()">
+                  <div class="feature-card-icon" style="background: rgba(110, 93, 83, 0.12); color: #6E5D53;">💎</div>
+                  <div class="feature-card-content">
+                    <div class="feature-card-tag">YOUR CLOSET</div>
+                    <h4 class="feature-card-title">Saved Looks</h4>
+                    <p class="feature-card-desc">Browse your saved wardrobe outfits, links & prices anytime.</p>
+                  </div>
+                  <div class="feature-card-arrow">→</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 1 — UPLOAD / CAPTURE PHOTO
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-1" data-step="1">
+          <div class="screen-pad">
+            
+            <!-- Radiance Logo Emblem -->
+            <div class="mobile-logo-wrap animate-fade-in">
+              <div class="radiance-monogram-emblem">
+                <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="30" stroke="url(#m-ring)" stroke-width="1.6" stroke-dasharray="2 3" opacity="0.6"/>
+                  <path d="M32 6L36.8 24.2L55 29L36.8 33.8L32 52L27.2 33.8L9 29L27.2 24.2L32 6Z" fill="url(#m-star)"/>
+                  <circle cx="32" cy="29" r="3.5" fill="#FAF7F2"/>
+                  <defs>
+                    <linearGradient id="m-ring" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#C27D60" />
+                      <stop offset="1" stop-color="#DFB15B" />
+                    </linearGradient>
+                    <linearGradient id="m-star" x1="9" y1="6" x2="55" y2="52" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#C27D60" />
+                      <stop offset="0.5" stop-color="#E8B89E" />
+                      <stop offset="1" stop-color="#8C4728" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <span class="mobile-brand-subtitle">AI PERSONAL STYLING COMPANION</span>
+            </div>
+
+            <div class="mobile-heading-block">
+              <h1 class="mobile-screen-title">Let’s discover your style.</h1>
+              <p class="mobile-screen-subtitle">
+                Take a live portrait or upload a photo to create your personalized profile.
+              </p>
+            </div>
+
+            <!-- Large Photo Upload / Camera Area -->
+            <div class="mobile-upload-box" id="mobile-upload-box">
+              <input type="file" id="mobile-gallery-input" accept="image/*" style="display:none;" onchange="RadianceApp.handleFileSelect(event)">
+              
+              <!-- Hidden canvas for camera snapshot capture -->
+              <canvas id="camera-capture-canvas" style="display:none;"></canvas>
+
+              <!-- State A: Empty State -->
+              <div class="upload-box-empty" id="upload-box-empty" onclick="RadianceApp.openCamera()">
+                <div class="upload-icon-halo">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="3" y="3" width="18" height="18" rx="4"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                  </svg>
+                </div>
+                <div class="upload-primary-text">Tap to Open Camera</div>
+                <div class="upload-hint-text">Or choose gallery upload below</div>
+              </div>
+
+              <!-- State B: Live Camera Viewfinder -->
+              <div class="camera-viewfinder-box" id="camera-viewfinder-box" style="display:none;">
+                <video id="camera-video" playsinline autoplay muted></video>
+                <div class="camera-overlay-guides">
+                  <div class="camera-face-oval"></div>
+                  <div class="camera-reticle tl"></div>
+                  <div class="camera-reticle tr"></div>
+                  <div class="camera-reticle bl"></div>
+                  <div class="camera-reticle br"></div>
+                  <div class="camera-live-badge">
+                    <span class="pulse-dot"></span> LIVE CAMERA
+                  </div>
+                </div>
+                <div class="camera-viewfinder-actions">
+                  <button type="button" class="camera-cancel-btn" onclick="RadianceApp.closeCamera()">Cancel</button>
+                  <button type="button" class="camera-shutter-btn" onclick="RadianceApp.capturePhoto()" title="Capture Photo">
+                    <span class="shutter-inner"></span>
+                  </button>
+                  <button type="button" class="camera-flip-btn" onclick="RadianceApp.flipCamera()" title="Switch Camera">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 16l-4 4-4-4M4 8l4-4 4 4"/>
+                      <path d="M16 20V8a4 4 0 0 0-4-4H4M8 4v12a4 4 0 0 0 4 4h8"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- State C: Camera Captured Review -->
+              <div class="camera-captured-box" id="camera-captured-box" style="display:none;">
+                <img id="camera-captured-img" src="" alt="Captured portrait" class="uploaded-portrait-thumb">
+                <div class="captured-review-actions">
+                  <button type="button" class="camera-retake-btn" onclick="RadianceApp.retakePhoto()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    <span>Retake</span>
+                  </button>
+                  <button type="button" class="camera-use-btn" onclick="RadianceApp.useCapturedPhoto()">
+                    <span>Use Photo</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- State D: Camera Error / Permission Denied Fallback -->
+              <div class="camera-error-box" id="camera-error-box" style="display:none;">
+                <div class="camera-err-icon">📷</div>
+                <div class="camera-err-title">Camera Unavailable</div>
+                <p class="camera-err-desc" id="camera-err-msg">
+                  Camera permission was not granted or no webcam detected. You can upload from gallery or use demo profiles.
+                </p>
+                <button type="button" class="mobile-secondary-action" onclick="document.getElementById('mobile-gallery-input').click()">
+                  <span>Upload from Gallery</span>
+                </button>
+              </div>
+
+              <!-- State E: Active Uploaded / Selected Preview -->
+              <div class="upload-box-preview" id="upload-box-preview" style="display:none;" onclick="document.getElementById('mobile-gallery-input').click()">
+                <img id="mobile-preview-img" src="" alt="Uploaded portrait" class="uploaded-portrait-thumb">
+                <div class="preview-active-tag">
+                  <span class="pulse-dot"></span> Ready for Analysis
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons: Take a Photo / Upload from Gallery -->
+            <div class="upload-options-row">
+              <button type="button" class="mobile-secondary-action highlight-cam" onclick="RadianceApp.openCamera()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span>Take a Photo</span>
+              </button>
+
+              <button type="button" class="mobile-secondary-action" onclick="document.getElementById('mobile-gallery-input').click()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Upload from Gallery</span>
+              </button>
+            </div>
+
+            <!-- Quick Demo Presets (for instant hackathon demoing) -->
+            <div class="mobile-preset-strip">
+              <div class="preset-strip-label">OR QUICK-SELECT DEMO PROFILE:</div>
+              <div class="preset-scroll-row">
+                <div class="mobile-preset-pill active" onclick="RadianceApp.selectPreset('aria')" data-preset="aria">
+                  <img src="" id="pthumb-aria" alt="Aria" class="pill-avatar">
+                  <span class="pill-name">Aria</span>
+                  <span class="pill-sub">Warm</span>
+                </div>
+                <div class="mobile-preset-pill" onclick="RadianceApp.selectPreset('chloe')" data-preset="chloe">
+                  <img src="" id="pthumb-chloe" alt="Chloe" class="pill-avatar">
+                  <span class="pill-name">Chloe</span>
+                  <span class="pill-sub">Cool</span>
+                </div>
+                <div class="mobile-preset-pill" onclick="RadianceApp.selectPreset('maya')" data-preset="maya">
+                  <img src="" id="pthumb-maya" alt="Maya" class="pill-avatar">
+                  <span class="pill-name">Maya</span>
+                  <span class="pill-sub">Bronze</span>
+                </div>
+                <div class="mobile-preset-pill" onclick="RadianceApp.selectPreset('elena')" data-preset="elena">
+                  <img src="" id="pthumb-elena" alt="Elena" class="pill-avatar">
+                  <span class="pill-name">Elena</span>
+                  <span class="pill-sub">Olive</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Primary Action: Analyze My Style -->
+            <div class="mobile-bottom-fixed-action">
+              <button class="mobile-primary-btn" id="analyze-my-style-btn" onclick="RadianceApp.startAnalysis()">
+                <span>Analyze My Style</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 2 — AI PERSONAL ANALYSIS
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-2" data-step="2">
+          <div class="screen-pad">
+            
+            <!-- Live Analysis Animation Phase -->
+            <div class="analysis-animation-stage" id="analysis-animation-stage">
+              <div class="mobile-scanner-view">
+                <img id="m-scanner-img" src="" alt="Scanning" class="m-scanner-portrait">
+                <div class="m-scanner-laser"></div>
+                <div class="m-reticle m-top-left"></div>
+                <div class="m-reticle m-top-right"></div>
+                <div class="m-reticle m-bottom-left"></div>
+                <div class="m-reticle m-bottom-right"></div>
+              </div>
+
+              <h2 class="mobile-screen-title" style="margin-top:16px;">Analyzing your style…</h2>
+              
+              <div class="m-animated-steps-card">
+                <div class="m-step-item" id="anim-step-1">
+                  <span class="step-check">✓</span>
+                  <span>Understanding your appearance</span>
+                </div>
+                <div class="m-step-item" id="anim-step-2">
+                  <span class="step-check">✓</span>
+                  <span>Identifying your color profile</span>
+                </div>
+                <div class="m-step-item" id="anim-step-3">
+                  <span class="step-check">✓</span>
+                  <span>Understanding your style preferences</span>
+                </div>
+                <div class="m-step-item" id="anim-step-4">
+                  <span class="step-check">✓</span>
+                  <span>Creating your recommendations</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Analysis Diagnostic Results (Displayed after animation) -->
+            <div class="analysis-results-stage" id="analysis-results-stage" style="display:none;">
+              
+              <div class="m-profile-header-card">
+                <div class="m-profile-avatar-wrap">
+                  <img id="m-result-avatar" src="" alt="User Portrait" class="m-profile-avatar-img">
+                  <div class="m-verified-badge">✓ AI Profile</div>
+                </div>
+                <div class="m-profile-names">
+                  <span class="m-season-tag" id="m-res-season-tag">Soft Autumn</span>
+                  <h2 class="m-profile-title" id="m-res-profile-name">Warm Medium</h2>
+                  <div class="m-premium-verified-badge" id="m-premium-verified-badge" style="display:none;">
+                    <span class="prem-check-dot">✦</span>
+                    <span class="prem-title">RADIANCE PREMIUM ✓</span>
+                    <span class="prem-sep">•</span>
+                    <span class="prem-tag">₹449 • One-time access</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Required Diagnostic Results: Skin Tone, Undertone, Style Profile -->
+              <div class="m-diagnostic-stack">
+                
+                <!-- Skin Tone -->
+                <div class="m-diag-item">
+                  <div class="m-diag-top">
+                    <span class="m-diag-label">Skin Tone</span>
+                    <span class="m-diag-hex" id="m-res-skin-hex">#C68B59</span>
+                  </div>
+                  <div class="m-diag-body-row">
+                    <div class="m-tone-color-dot" id="m-res-tone-swatch" style="background:#C68B59;"></div>
+                    <div class="m-diag-val" id="m-res-skin-tone">Warm Medium</div>
+                  </div>
+                  <p class="m-diag-sub" id="m-res-skin-desc">
+                    Luminous warm pigmentation with natural golden-honey highlights.
+                  </p>
+                </div>
+
+                <!-- Undertone -->
+                <div class="m-diag-item">
+                  <div class="m-diag-top">
+                    <span class="m-diag-label">Undertone</span>
+                    <span class="m-diag-tag" id="m-res-undertone-tag">Warm</span>
+                  </div>
+                  <div class="m-diag-val" id="m-res-undertone-val">Warm Golden</div>
+                  <p class="m-diag-sub" id="m-res-undertone-desc">
+                    Subsurface yellow and peachy pigments radiate seamlessly with earthy tones.
+                  </p>
+                </div>
+
+                <!-- Style Profile -->
+                <div class="m-diag-item">
+                  <div class="m-diag-top">
+                    <span class="m-diag-label">Style Profile</span>
+                    <span class="m-diag-tag">Architectural</span>
+                  </div>
+                  <div class="m-diag-val" id="m-res-style-profile">Modern • Casual • Elegant</div>
+                  <p class="m-diag-sub" id="m-res-style-desc">
+                    Tailored yet fluid silhouettes celebrating relaxed structure and warm drape.
+                  </p>
+                </div>
+
+              </div>
+
+              <!-- Button: See My Colors / Unlock -->
+              <div class="mobile-bottom-fixed-action">
+                <button class="mobile-primary-btn" id="m-analysis-continue-btn" onclick="RadianceApp.proceedFromAnalysis()">
+                  <span id="m-analysis-btn-label">See My Colors</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 3 — PERSONAL COLORS
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-3" data-step="3">
+          <div class="screen-pad">
+            <div class="mobile-heading-block">
+              <h1 class="mobile-screen-title">Your Colors</h1>
+              <p class="mobile-screen-subtitle" id="m-colors-subtitle">
+                Colors that complement your natural appearance.
+              </p>
+            </div>
+
+            <div class="personal-colors-container">
+              <!-- SECTION 1: BEST COLORS (6-8 swatches) -->
+              <div class="m-palette-card">
+                <div class="m-card-badge best">✦ BEST COLORS</div>
+                <h3 class="m-palette-title">Power Tones That Flatter</h3>
+                <div class="m-swatches-grid" id="m-best-swatches-grid">
+                  <!-- Dynamically populated by app.js (6-8 swatches) -->
+                </div>
+              </div>
+
+              <!-- SECTION 2: COMPLEMENTARY COLORS -->
+              <div class="m-palette-card">
+                <div class="m-card-badge comp">✦ COMPLEMENTARY COLORS</div>
+                <h3 class="m-palette-title">Accent Tones for Contrast</h3>
+                <div class="m-swatches-grid" id="m-comp-swatches-grid">
+                  <!-- Dynamically populated by app.js -->
+                </div>
+              </div>
+
+              <!-- SECTION 3: COLORS TO AVOID -->
+              <div class="m-palette-card">
+                <div class="m-card-badge avoid">✕ COLORS TO AVOID</div>
+                <h3 class="m-palette-title">Complexion-Dulling Tones</h3>
+                <div class="m-avoid-grid" id="m-avoid-swatches-grid">
+                  <!-- Dynamically populated by app.js -->
+                </div>
+              </div>
+
+              <!-- SECTION 4: RECOMMENDED COMBINATIONS -->
+              <div class="m-palette-card">
+                <div class="m-card-badge combo">◈ RECOMMENDED COMBINATIONS</div>
+                <h3 class="m-palette-title">Harmonious Formulas</h3>
+                <div class="m-combos-list" id="m-combos-container">
+                  <!-- Dynamically populated by app.js -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Button: Explore Outfits -->
+            <div class="mobile-bottom-fixed-action">
+              <button class="mobile-primary-btn" onclick="RadianceApp.goToScreen(4)">
+                <span>Explore Outfits</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 4 — PERSONALIZED OUTFITS (MULTIPLE COMBINATIONS)
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-4" data-step="4">
+          <div class="screen-pad">
+            <div class="mobile-heading-block">
+              <h1 class="mobile-screen-title">Looks Made for You</h1>
+              <p class="mobile-screen-subtitle">
+                Multiple complete outfit combinations harmonized with your verified color profile.
+              </p>
+            </div>
+
+            <!-- Category Tabs: All, Casual, College, Formal, Traditional, Party -->
+            <div class="m-category-tabs-scroll">
+              <button class="m-cat-tab active" data-cat="all" onclick="RadianceApp.setCategory('all')">All Looks</button>
+              <button class="m-cat-tab" data-cat="casual" onclick="RadianceApp.setCategory('casual')">Casual</button>
+              <button class="m-cat-tab" data-cat="college" onclick="RadianceApp.setCategory('college')">College</button>
+              <button class="m-cat-tab" data-cat="formal" onclick="RadianceApp.setCategory('formal')">Formal</button>
+              <button class="m-cat-tab" data-cat="traditional" onclick="RadianceApp.setCategory('traditional')">Traditional</button>
+              <button class="m-cat-tab" data-cat="party" onclick="RadianceApp.setCategory('party')">Party</button>
+            </div>
+
+            <div class="m-category-summary">
+              <span class="m-cat-badge" id="m-cur-cat-badge">All Curated Looks</span>
+              <span class="m-cat-count" id="m-cur-cat-count">5 Personalized Looks</span>
+            </div>
+
+            <!-- Outfit Recommendation Cards Grid / Stack -->
+            <div class="m-outfit-cards-list" id="m-outfit-cards-container">
+              <!-- Dynamically populated by app.js with 4+ personalized complete looks -->
+            </div>
+
+            <!-- Action Button -->
+            <div class="mobile-bottom-fixed-action">
+              <button class="mobile-primary-btn" onclick="RadianceApp.goToScreen(5)">
+                <span>View Complete Look</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 5 — COMPLETE LOOK
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-5" data-step="5">
+          <div class="screen-pad">
+            <div class="mobile-heading-block">
+              <h1 class="mobile-screen-title">Your Complete Look</h1>
+              <p class="mobile-screen-subtitle">
+                Designed around your personal color profile.
+              </p>
+            </div>
+
+            <div class="m-complete-look-card" id="m-complete-look-card">
+              <!-- Rendered dynamically by app.js: Portrait Preview + TOP + BOTTOM + SHOES + ACCESSORIES + Color Harmony -->
+            </div>
+
+            <!-- Complete Look Actions: Try This Look / Shop This Look / Save Look -->
+            <div class="m-complete-actions-stack">
+              <button class="mobile-primary-btn pulse-glow" onclick="RadianceApp.goToScreen(7)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span>Try This Look</span>
+              </button>
+
+              <button class="mobile-shop-btn" onclick="RadianceApp.goToScreen(6)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <path d="M16 10a4 4 0 0 1-8 0"/>
+                </svg>
+                <span>Shop This Look</span>
+              </button>
+
+              <button class="mobile-save-action-btn" id="m-save-look-btn-5" onclick="RadianceApp.saveCurrentLook(true)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>Save Look to Wardrobe</span>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 6 — SHOP THIS LOOK (ONLY MYNTRA & MEESHO)
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-6" data-step="6">
+          <div class="screen-pad">
+            <div class="mobile-heading-block">
+              <div class="store-partner-pill">
+                <span class="store-dot-myntra"></span> MYNTRA &bull; <span class="store-dot-meesho"></span> MEESHO
+              </div>
+              <h1 class="mobile-screen-title">Shop This Look</h1>
+              <p class="mobile-screen-subtitle">
+                Find exact matching pieces exclusively on Myntra and Meesho.
+              </p>
+            </div>
+
+            <!-- Complete The Look Total Banner -->
+            <div class="m-shop-bundle-card">
+              <div class="bundle-left">
+                <span class="bundle-label">COMPLETE THE LOOK · MYNTRA & MEESHO</span>
+                <div class="bundle-price" id="m-bundle-total-price">₹5,397</div>
+                <span class="bundle-pieces-count" id="m-bundle-count">4 Curated Pieces</span>
+              </div>
+              <button class="bundle-shop-all-btn" onclick="RadianceApp.shopCompleteLook()">
+                <span>Shop Complete Look</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Filter Chips (All, Tops, Bottoms, Shoes, Accessories) -->
+            <div class="m-shop-filters-row">
+              <button class="m-filter-chip active" data-filter="all" onclick="RadianceApp.setShopFilter('all')">All Pieces</button>
+              <button class="m-filter-chip" data-filter="tops" onclick="RadianceApp.setShopFilter('tops')">Tops</button>
+              <button class="m-filter-chip" data-filter="bottoms" onclick="RadianceApp.setShopFilter('bottoms')">Bottoms</button>
+              <button class="m-filter-chip" data-filter="shoes" onclick="RadianceApp.setShopFilter('shoes')">Shoes</button>
+              <button class="m-filter-chip" data-filter="accessories" onclick="RadianceApp.setShopFilter('accessories')">Accessories</button>
+            </div>
+
+            <!-- Sorting Dropdown / Pills -->
+            <div class="m-shop-sort-row">
+              <span class="sort-caption">Sort by:</span>
+              <select id="m-shop-sort-select" class="m-sort-select" onchange="RadianceApp.handleShopSort(this.value)">
+                <option value="recommended">Recommended</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+              </select>
+            </div>
+
+            <!-- Product Cards List -->
+            <div class="m-products-list" id="m-products-list-container">
+              <!-- Dynamically populated by app.js with Myntra & Meesho items -->
+            </div>
+
+            <!-- Proceed to Virtual Try-On CTA -->
+            <div class="mobile-bottom-fixed-action">
+              <button class="mobile-primary-btn" onclick="RadianceApp.goToScreen(7)">
+                <span>Proceed to Virtual Try-On</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 7 — VIRTUAL TRY-ON
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-7" data-step="7">
+          <div class="screen-pad">
+            <div class="mobile-heading-block">
+              <h1 class="mobile-screen-title">See It On You</h1>
+              <p class="mobile-screen-subtitle">
+                Visualizing your curated ensemble with your natural skin tone.
+              </p>
+            </div>
+
+            <!-- Virtual Try-On Mirror Stage -->
+            <div class="m-tryon-stage" id="m-tryon-stage">
+              <!-- Dynamically rendered with user photo & outfit overlay pins -->
+            </div>
+
+            <!-- Action Buttons: Try Another Look & Save Look -->
+            <div class="m-tryon-actions-stack">
+              <button class="mobile-secondary-action large" onclick="RadianceApp.tryAnotherLook()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span>Try Another Look</span>
+              </button>
+
+              <button class="mobile-primary-btn" id="m-tryon-save-btn" onclick="RadianceApp.saveLookAndAdvance()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>Save Look</span>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 8 — SAVED LOOK (Dedicated Screen)
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-8" data-step="8">
+          <div class="screen-pad">
+            <div class="mobile-heading-block">
+              <div class="saved-success-badge">
+                <span class="heart-sparkle">✨</span> Saved to Wardrobe
+              </div>
+              <h1 class="mobile-screen-title">Your Saved Look</h1>
+              <p class="mobile-screen-subtitle">
+                This ensemble is preserved in your Radiance session closet.
+              </p>
+            </div>
+
+            <!-- Saved Look Card Display -->
+            <div class="m-saved-dossier-card" id="m-saved-dossier-card">
+              <!-- Dynamically populated: User Photo + Complete Outfit + Palette + Product Pieces + Stores + Total Price -->
+            </div>
+
+            <!-- Buttons: Explore More Looks & Continue -->
+            <div class="m-saved-actions-stack">
+              <button class="mobile-secondary-action large" onclick="RadianceApp.goToScreen(4)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                <span>Explore More Looks</span>
+              </button>
+
+              <button class="mobile-primary-btn" onclick="RadianceApp.goToScreen(9)">
+                <span>Finish Experience</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================
+             SCREEN 9 — FINAL RADIANCE SCREEN
+             ======================================================== -->
+        <section class="mobile-screen" id="screen-9" data-step="9">
+          <div class="screen-pad final-screen-pad">
+            
+            <div class="final-glow-halo"></div>
+
+            <!-- Glowing Radiance Logo -->
+            <div class="m-final-logo-wrap animate-fade-in">
+              <div class="m-final-glow-star">
+                <svg width="84" height="84" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="30" stroke="url(#f-ring)" stroke-width="1.8" stroke-dasharray="2 3" opacity="0.8"/>
+                  <path d="M32 4L37.2 23.8L57 29L37.2 34.2L32 54L26.8 34.2L7 29L26.8 23.8L32 4Z" fill="url(#f-star)"/>
+                  <circle cx="32" cy="29" r="4.5" fill="#FAF7F2"/>
+                  <defs>
+                    <linearGradient id="f-ring" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#C27D60" />
+                      <stop offset="1" stop-color="#DFB15B" />
+                    </linearGradient>
+                    <linearGradient id="f-star" x1="7" y1="4" x2="57" y2="54" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#C27D60" />
+                      <stop offset="0.5" stop-color="#E8B89E" />
+                      <stop offset="1" stop-color="#8C4728" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <span class="m-final-brand-text">RADIANCE</span>
+            </div>
+
+            <!-- Required Manifesto Text -->
+            <div class="m-manifesto-box animate-fade-up">
+              <p class="m-manifesto-line muted">Don’t just follow trends.</p>
+              <h2 class="m-manifesto-line prominence">Discover your style.</h2>
+              <p class="m-manifesto-line highlight">Express yourself with confidence.</p>
+              <h1 class="m-manifesto-line climax">Shine with Radiance.</h1>
+            </div>
+
+            <!-- Final Screen Actions -->
+            <div class="m-final-actions-stack animate-fade-up">
+              <button class="mobile-primary-btn" onclick="RadianceApp.openSavedModal()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+                <span>View Saved Wardrobe</span>
+              </button>
+
+              <button class="mobile-secondary-action large" onclick="RadianceApp.startFreshSession()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                </svg>
+                <span>Start New Styling Session</span>
+              </button>
+            </div>
+
+            <div class="m-final-tagline">
+              Haute AI Fashion Tech · Radiance Mobile & Studio
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Mobile Home Indicator -->
+      <div class="mobile-home-bar">
+        <div class="home-indicator-pill"></div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- USER PROFILE MODAL -->
+  <div class="mobile-modal-backdrop" id="profile-modal-backdrop" onclick="RadianceApp.closeProfileModal(event)">
+    <div class="mobile-bottom-sheet profile-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <div>
+          <span class="sheet-eyebrow">YOUR PERSONAL SPACE</span>
+          <h3 class="sheet-title">My Profile</h3>
+        </div>
+        <button class="close-sheet-btn" onclick="RadianceApp.closeProfileModal()" aria-label="Close profile">✕</button>
+      </div>
+      <div class="profile-form-content">
+        <div class="profile-photo-block">
+          <img id="profile-photo-preview" src="assets/avatars/aria.webp" alt="Profile portrait">
+          <label class="profile-photo-change" for="profile-photo-input">Change photo</label>
+          <input id="profile-photo-input" type="file" accept="image/*" hidden onchange="RadianceApp.handleProfilePhoto(event)">
+        </div>
+        <div class="profile-field-grid">
+          <label class="profile-field profile-field-wide">Full name
+            <input id="profile-full-name" type="text" maxlength="70" placeholder="Enter your name" autocomplete="name">
+          </label>
+          <label class="profile-field profile-field-wide">Email address
+            <input id="profile-email" type="email" maxlength="120" placeholder="you@example.com" autocomplete="email">
+          </label>
+          <label class="profile-field">Age
+            <input id="profile-age" type="number" min="13" max="100" placeholder="Age">
+          </label>
+          <label class="profile-field">Gender (optional)
+            <select id="profile-gender">
+              <option value="">Prefer not to say</option>
+              <option>Woman</option><option>Man</option><option>Non-binary</option><option>Other</option>
+            </select>
+          </label>
+          <label class="profile-field profile-field-wide">Body shape (optional)
+            <select id="profile-body-shape">
+              <option value="">Not specified</option>
+              <option>Hourglass</option><option>Pear</option><option>Apple</option><option>Rectangle</option><option>Inverted triangle</option><option>Prefer not to say</option>
+            </select>
+          </label>
+          <label class="profile-field profile-field-wide">Style preference
+            <select id="profile-style-preference">
+              <option value="">Choose your style</option>
+              <option>Minimal & timeless</option><option>Casual & comfortable</option><option>Classic & elegant</option><option>Trendy & experimental</option><option>Traditional & fusion</option><option>Streetwear</option>
+            </select>
+          </label>
+        </div>
+        <div class="profile-insight-card">
+          <div><span>Colour profile</span><strong id="profile-season">Not analysed yet</strong></div>
+          <div><span>Undertone</span><strong id="profile-undertone">Not analysed yet</strong></div>
+        </div>
+        <button class="mobile-primary-btn profile-save-btn" onclick="RadianceApp.saveUserProfile()">Save Profile</button>
+        <p class="profile-privacy-note">Your profile details are saved in this browser on this device.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED WARDROBE BOTTOM SHEET / MODAL -->
+  <div class="mobile-modal-backdrop" id="saved-modal-backdrop" onclick="RadianceApp.closeSavedModal(event)">
+    <div class="mobile-bottom-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <div>
+          <span class="sheet-eyebrow">YOUR RADIANCE CLOSET</span>
+          <h3 class="sheet-title">Saved Looks</h3>
+        </div>
+        <button class="close-sheet-btn" onclick="RadianceApp.closeSavedModal()">✕</button>
+      </div>
+
+      <div class="sheet-content" id="saved-wardrobe-content">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       PREMIUM UNLOCK MODAL / BOTTOM SHEET (₹449 ONE-TIME)
+       ======================================================== -->
+  <div class="mobile-modal-backdrop premium-backdrop" id="premium-unlock-modal" onclick="RadianceApp.closePremiumModal(event)">
+    <div class="mobile-bottom-sheet premium-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-drag-handle"></div>
+      
+      <div class="premium-modal-header">
+        <div class="premium-eyebrow-badge">
+          <span class="prem-sparkle-icon">✦</span> RADIANCE ACCESS
+        </div>
+        <button class="close-sheet-btn" onclick="RadianceApp.closePremiumModal()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="premium-sheet-body">
+        <!-- Hero Price Lockup -->
+        <div class="premium-hero-card">
+          <div class="premium-price-row">
+            <span class="currency-symbol">₹</span>
+            <span class="price-amount">449</span>
+          </div>
+          <div class="premium-price-badge">One-time payment • No subscription</div>
+          <h2 class="premium-modal-title">Unlock Your Complete Style Experience</h2>
+          <p class="premium-modal-desc">
+            Get personalized colors, complete outfit combinations, shopping recommendations, virtual try-on and your digital wardrobe.
+          </p>
+        </div>
+
+        <!-- Premium Features Checklist -->
+        <div class="premium-features-checklist">
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>AI Personal Color Analysis & Custom Swatches</strong>
+              <span>Power tones, complementary accents & shades to avoid</span>
+            </div>
+          </div>
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>Multiple AI Outfit Combinations</strong>
+              <span>5+ complete looks across Casual, College, Formal, Party & Traditional</span>
+            </div>
+          </div>
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>Myntra + Meesho Product Recommendations</strong>
+              <span>Curated items with exact prices & direct store matching</span>
+            </div>
+          </div>
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>Shop This Look & Bundle Pricing</strong>
+              <span>Complete the look checklist with instant store carting</span>
+            </div>
+          </div>
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>Virtual Try-On Mirror</strong>
+              <span>Interactive drape simulation on your portrait with garment pins</span>
+            </div>
+          </div>
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>Digital Wardrobe & Saved Looks</strong>
+              <span>Persist your favorite ensembles with direct re-access anytime</span>
+            </div>
+          </div>
+          <div class="prem-check-item">
+            <div class="prem-check-icon">✓</div>
+            <div class="prem-check-text">
+              <strong>Personalized Wardrobe Suggestions</strong>
+              <span>Bespoke styling formulas harmonized to your complexion</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA Actions -->
+        <div class="premium-actions-wrap">
+          <button class="mobile-primary-btn premium-unlock-cta pulse-glow" onclick="RadianceApp.openPaymentModal()">
+            <span>Unlock Premium — ₹449</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+          <button class="premium-secondary-btn" onclick="RadianceApp.closePremiumModal()">
+            Maybe Later
+          </button>
+          <div class="premium-guarantee-note">
+            <span>🔒 Secure checkout • One-time access • No recurring charges</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       REALISTIC PAYMENT PROTOTYPE MODAL (₹449)
+       ======================================================== -->
+  <div class="mobile-modal-backdrop payment-backdrop" id="payment-modal" onclick="RadianceApp.closePaymentModal(event)">
+    <div class="mobile-bottom-sheet payment-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-drag-handle"></div>
+
+      <!-- State 1: Choose Payment Method & Pay -->
+      <div id="payment-view-form">
+        <div class="payment-modal-header">
+          <div>
+            <span class="sheet-eyebrow">RADIANCE CHECKOUT</span>
+            <h3 class="sheet-title">Complete Payment</h3>
+          </div>
+          <button class="close-sheet-btn" onclick="RadianceApp.closePaymentModal()">✕</button>
+        </div>
+
+        <div class="payment-sheet-body">
+          <!-- Order Summary Card -->
+          <div class="payment-summary-card">
+            <div class="pay-summary-left">
+              <div class="pay-product-name">Radiance Premium Lifetime Access</div>
+              <div class="pay-product-sub">One-time payment • No subscription</div>
+            </div>
+            <div class="pay-summary-price">₹449</div>
+          </div>
+
+          <!-- Payment Methods -->
+          <div class="payment-methods-title">SELECT PAYMENT METHOD:</div>
+          <div class="payment-methods-stack">
+            
+            <!-- Method 1: UPI -->
+            <label class="pay-method-option active" id="pay-opt-upi" onclick="RadianceApp.selectPayMethod('upi')">
+              <input type="radio" name="pay_method" value="upi" checked>
+              <div class="pay-method-icon">⚡</div>
+              <div class="pay-method-info">
+                <div class="pay-method-title">UPI (Google Pay, PhonePe, Paytm, BHIM)</div>
+                <div class="pay-method-desc">Instant payment via any UPI app</div>
+              </div>
+              <div class="pay-check-radio" id="pay-radio-upi">●</div>
+            </label>
+
+            <!-- Method 2: Card -->
+            <label class="pay-method-option" id="pay-opt-card" onclick="RadianceApp.selectPayMethod('card')">
+              <input type="radio" name="pay_method" value="card">
+              <div class="pay-method-icon">💳</div>
+              <div class="pay-method-info">
+                <div class="pay-method-title">Credit / Debit Card</div>
+                <div class="pay-method-desc">Visa, Mastercard, RuPay, Diners</div>
+              </div>
+              <div class="pay-check-radio" id="pay-radio-card">○</div>
+            </label>
+
+            <!-- Method 3: Net Banking -->
+            <label class="pay-method-option" id="pay-opt-netbanking" onclick="RadianceApp.selectPayMethod('netbanking')">
+              <input type="radio" name="pay_method" value="netbanking">
+              <div class="pay-method-icon">🏦</div>
+              <div class="pay-method-info">
+                <div class="pay-method-title">Net Banking</div>
+                <div class="pay-method-desc">HDFC, ICICI, SBI, Axis & all major banks</div>
+              </div>
+              <div class="pay-check-radio" id="pay-radio-netbanking">○</div>
+            </label>
+          </div>
+
+          <!-- Notice: Prototype simulated payment disclaimer -->
+          <div class="payment-demo-disclaimer">
+            <span>ℹ️ Prototype demo payment. No actual financial transaction occurs.</span>
+          </div>
+
+          <!-- Pay Button -->
+          <button class="mobile-primary-btn pay-action-btn" id="btn-pay-now" onclick="RadianceApp.processPayment()">
+            <span>Pay ₹449</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- State 2: Processing Payment Animation -->
+      <div id="payment-view-processing" style="display:none;">
+        <div class="payment-processing-content">
+          <div class="payment-spinner-halo">
+            <div class="payment-spinner-core"></div>
+          </div>
+          <h3 class="pay-status-headline">Processing Payment…</h3>
+          <p class="pay-status-sub">Securing your ₹449 one-time premium unlock</p>
+          <div class="pay-secure-indicator">
+            <span class="pulse-dot"></span> 256-Bit Encrypted Simulation
+          </div>
+        </div>
+      </div>
+
+      <!-- State 3: Payment Successful -->
+      <div id="payment-view-success" style="display:none;">
+        <div class="payment-success-content">
+          <div class="pay-success-check-emblem">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FAF7F2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div class="pay-success-badge">TRANSACTION VERIFIED</div>
+          <h2 class="pay-success-title">Payment Successful ✓</h2>
+          <p class="pay-success-welcome">Welcome to Radiance Premium.</p>
+          
+          <div class="pay-success-card">
+            <div class="pay-success-row">
+              <span>Amount Paid</span>
+              <strong style="color:var(--text-espresso);">₹449</strong>
+            </div>
+            <div class="pay-success-row">
+              <span>Plan Type</span>
+              <span>One-Time Access (No Subscription)</span>
+            </div>
+            <div class="pay-success-row">
+              <span>Status</span>
+              <span style="color:#059669; font-weight:700;">Active Forever</span>
+            </div>
+          </div>
+
+          <button class="mobile-primary-btn pay-continue-btn pulse-glow" onclick="RadianceApp.completePaymentAndContinue()">
+            <span>Start Styling</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="mobile-toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
